@@ -1,0 +1,15 @@
+{
+	"name": "healthcare-project1adf",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "f32a02fd-6878-4ff4-aef8-56a5905aa602",
+		"tenantId": "a45d53b4-56ee-481f-a368-d115caf28966"
+	}
+}

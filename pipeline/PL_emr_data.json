@@ -1,0 +1,507 @@
+{
+	"name": "PL_emr_data",
+	"properties": {
+		"activities": [
+			{
+				"name": "read_config_file",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "lookup_emrdata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "iterate_each_file",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "read_config_file",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('read_config_file').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "PL_emr_sourse_data",
+							"type": "Copy",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "emr_source_table",
+									"type": "DatasetReference",
+									"parameters": {
+										"dbname": {
+											"value": "@item().database",
+											"type": "Expression"
+										},
+										"tbname": {
+											"value": "@split(item().tablename,'.')[1]",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Parquet1",
+									"type": "DatasetReference",
+									"parameters": {
+										"folder": {
+											"value": "@item().targetpath",
+											"type": "Expression"
+										},
+										"filename": {
+											"value": "@split(item().tablename,'.')[1]",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "checking_file",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "checking_file_existing",
+									"type": "DatasetReference",
+									"parameters": {
+										"folder": {
+											"value": "@item().targetpath",
+											"type": "Expression"
+										},
+										"filename": {
+											"value": "@split(item().tablename,'.')[1]",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"exists"
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							}
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "checking_file",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@activity('checking_file').output.exists",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Copy data1",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "ParquetSource",
+												"storeSettings": {
+													"type": "AzureBlobFSReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "ParquetReadSettings"
+												}
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "moving_emrfile",
+												"type": "DatasetReference",
+												"parameters": {
+													"folder": {
+														"value": "@item().targetpath",
+														"type": "Expression"
+													},
+													"filename": "@split(item().tablename,'.')[1]"
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "archieve_sink",
+												"type": "DatasetReference",
+												"parameters": {
+													"folder": {
+														"value": "@concat('/archieve/',utcNow('yyyy'),'/',utcNow('MM'),'/',utcNow('dd'),'/',item().targetpath\n\n)",
+														"type": "Expression"
+													},
+													"filename": {
+														"value": "@split(item().tablename,'.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Checking_loadtype",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "If Condition1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(int(activity('Fetch_last_pipeline_run').output.firstRow.cnt),0)",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Fetch_last_pipeline_run",
+										"type": "Lookup",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureDatabricksDeltaLakeSource",
+												"query": {
+													"value": "SELECT COUNT(*) AS cnt\nFROM audit.load_logs\nWHERE datasource = '@{item().datasource}'\nAND tablename = '@{item().tablename}'\n",
+													"type": "Expression"
+												}
+											},
+											"dataset": {
+												"referenceName": "AzureDatabricksDeltaLakeDataset1",
+												"type": "DatasetReference"
+											}
+										}
+									},
+									{
+										"name": "Copy data2",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Fetch_last_pipeline_run",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "@concat('select *,''',item().datasource,''' as datasource from ',item().tablename,' where ',item().watermark,' >= ''',activity('Fetch_last_pipeline_run').output.firstRow.last_fetched_date,'''')\n",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "AzureSqlTable2",
+												"type": "DatasetReference",
+												"parameters": {
+													"dbname": {
+														"value": "@item().database",
+														"type": "Expression"
+													},
+													"tablename": {
+														"value": "@split(item().tablename,'.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "Parquet2",
+												"type": "DatasetReference",
+												"parameters": {
+													"folder": {
+														"value": "@item().targetpath",
+														"type": "Expression"
+													},
+													"filename": {
+														"value": "@split(item().tablename,'.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "update_load_logs",
+										"type": "Lookup",
+										"dependsOn": [
+											{
+												"activity": "Copy data2",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureDatabricksDeltaLakeSource",
+												"query": {
+													"value": "@concat(\n'insert into audit.load_logs (datasource, tablename, noofrowscopied, watermarkcolumnname, loaddate) values (''',\nitem().datasource,\n''',''',\nitem().tablename,\n''',',\nactivity('Copy data2').output.rowsCopied,\n',''',\nitem().watermark,\n''',''',\nutcNow(),\n''')'\n)",
+													"type": "Expression"
+												}
+											},
+											"dataset": {
+												"referenceName": "AzureDatabricksDeltaLakeDataset1",
+												"type": "DatasetReference"
+											},
+											"firstRowOnly": false
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "PL_emr_sourse_data_copy1",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "@concat( 'select *,''',item().datasource, ''' as source from ', item().tablename)",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "ParquetSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "ParquetWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "emr_source_table",
+												"type": "DatasetReference",
+												"parameters": {
+													"dbname": {
+														"value": "@item().database",
+														"type": "Expression"
+													},
+													"tbname": {
+														"value": "@split(item().tablename,'.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "Parquet1",
+												"type": "DatasetReference",
+												"parameters": {
+													"folder": {
+														"value": "@item().targetpath",
+														"type": "Expression"
+													},
+													"filename": {
+														"value": "@split(item().tablename,'.')[1]",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-06-21T17:00:48Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

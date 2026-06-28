@@ -1,0 +1,38 @@
+{
+	"name": "AzureDatabricksDeltaLakeDataset1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDatabricksDeltaLake2",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureDatabricksDeltaLakeDataset",
+		"typeProperties": {
+			"database": "audit",
+			"table": "load_logs"
+		},
+		"schema": [
+			{
+				"name": "dastasource",
+				"type": "string"
+			},
+			{
+				"name": "tablename",
+				"type": "string"
+			},
+			{
+				"name": "noofrowscopied",
+				"type": "integer"
+			},
+			{
+				"name": "watermarlcolumnname",
+				"type": "string"
+			},
+			{
+				"name": "loaddate",
+				"type": "timestamp"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
